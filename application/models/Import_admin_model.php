@@ -97,12 +97,11 @@ class Import_admin_model extends CI_Model
             'products-ext_addtional_fields'        => implode(",", $this->input->post('products-ext_addtional_fields', true)),
         );
 
-// print_r($this->input->post());die;
         foreach ($data as $key => $row) {
             if (count(explode("-", $key)) == 2) {
                 $table = explode("-", $key)[0];
                 $column = explode("-", $key)[1];
-                if(!strpos($column, "ext") && $row) {
+                if($row) {
                     $this->add_imports(array(
                         'db_name'       => $data['db_name'],
                         'table_from'    => $data['table'],
@@ -115,5 +114,157 @@ class Import_admin_model extends CI_Model
             }
         }
         return true;
+    }
+
+    public function upload_item($load_item)
+    {
+        $db_name = $this->input->get('db_name', true);
+        $table = $this->input->get('table', true);
+        
+        $current = $this->get_current($db_name, $table);
+        $users = [];
+        $products = [];
+        $images = [];
+        $custom_fields = [];
+
+        foreach ($current as $key => $cur) {
+            $keys = explode("-", $key);
+            if(count($keys) == 2 && $cur) {
+                switch($key) {
+                    case 'users-username':
+                    case 'users-email':
+                    case 'users-phone_number':
+                    case 'users-city':
+                        $users[$keys[1]] = $load_item[0][$cur];
+                        break;
+                    case 'users-avatar':
+                    case 'users-ext_url':
+                    case 'users-ext_location':
+                        break;
+                    case 'products-title':
+                    case 'products-cateogory_id':
+                    case 'products-description':
+                    case 'products-price':
+                    case 'products-city':
+                    case 'products-address':
+                    case 'products-zip_code':
+                    case 'products-external_link':
+                        $products[$keys[1]] = $load_item[0][$cur];
+                        break;
+                    case 'products-ext_location':
+                    case 'products-ext_main_image':
+                        break;
+                    case 'products-ext_images':
+                    case 'products-ext_addtional_description':
+                    case 'products-ext_addtional_fields':
+                        break;
+                }
+            }
+        }
+        
+        $user_id = add_users($users);
+
+        $products['user_id'] = $user_id;
+        add_products($products);
+        add_images($images);
+        add_custom_fields($custom_fields);
+        
+        var_dump($current, $load_item);die;
+
+    }
+
+
+    // Add product data
+    public function add_products($custom)
+    {
+        $data = array(
+            'title' => "",
+            'product_type' => "",
+            'listing_type' => "",
+            'category_id' => 0,
+            'subcategory_id' => 0,
+            'third_category_id' => 0,
+            'price' => 0,
+            'currency' => "",
+            'description' => "",
+            'product_condition' => "",
+            'country_id' => 0,
+            'state_id' => 0,
+            'city_id' => 0,
+            'address' => "",
+            'zip_code' => "",
+            'user_id' => 0,
+            'status' => 0,
+            'is_promoted' => 0,
+            'promote_start_date' => date('Y-m-d H:i:s'),
+            'promote_end_date' => date('Y-m-d H:i:s'),
+            'promote_plan' => "none",
+            'promote_day' => 0,
+            'visibility' => 1,
+            'rating' => 0,
+            'hit' => 0,
+            'demo_url' => "",
+            'external_link' => "",
+            'files_included' => "",
+            'quantity' => 1,
+            'shipping_time' => "",
+            'shipping_cost_type' => "",
+            'shipping_cost' => 0,
+            'is_sold' => 0,
+            'is_deleted' => 0,
+            'is_draft' => 1,
+            'created_at' => date('Y-m-d H:i:s')
+        );
+
+        foreach ($custom as $column => $value) {
+            $data[$column] = $value;
+        }
+
+        return $this->db->insert('products', $data);
+    }
+
+    // If exist user, load user_id. if not add user data.
+    public function add_users($custom)
+    {
+        $data = array(
+            'title' => "",
+            'created_at' => date('Y-m-d H:i:s')
+        );
+
+        foreach ($custom as $column => $value) {
+            $data[$column] = $value;
+        }
+
+        return $this->db->insert('users', $data);
+    }
+
+    // Upload images and change image names and add image data.
+    public function add_images($custom)
+    {
+        $data = array(
+            'title' => "",
+            'created_at' => date('Y-m-d H:i:s')
+        );
+
+        foreach ($custom as $column => $value) {
+            $data[$column] = $value;
+        }
+
+        return $this->db->insert('images', $data);
+    }
+
+    // If not exist custom field, make it. then add custom field data.
+    public function add_custom_fields($custom)
+    {
+        $data = array(
+            'title' => "",
+            'created_at' => date('Y-m-d H:i:s')
+        );
+
+        foreach ($custom as $column => $value) {
+            $data[$column] = $value;
+        }
+
+        return $this->db->insert('custom_fields', $data);
     }
 }

@@ -67,36 +67,36 @@ class Import_admin_controller extends Admin_Core_Controller
             redirect($this->agent->referrer());
         }
     }
+    
 
     /**
-     * Email Verification Post
+     * Load More Data
      */
-    public function email_verification_post()
+    public function load_more_data()
     {
-        if ($this->settings_model->update_email_verification()) {
-            $this->session->set_flashdata('success', trans("msg_updated"));
-            $this->session->set_flashdata('submit', "verification");
-            redirect($this->agent->referrer());
-        } else {
-            $this->session->set_flashdata('error', trans("msg_error"));
-            $this->session->set_flashdata('submit', "verification");
-            redirect($this->agent->referrer());
-        }
+        $result = '';
+        if ($this->input->get('table', true)) 
+            $result = $this->import_external_db->load_more_data($this->get_config($this->input->get('db_name', true)));
+        echo json_encode($result);
     }
 
+
     /**
-     * Email Options Post
+     * Upload Object
      */
-    public function email_options_post()
+    public function upload_object()
     {
-        if ($this->settings_model->update_email_options()) {
-            $this->session->set_flashdata('success', trans("msg_updated"));
-            $this->session->set_flashdata('submit', "options");
-            redirect($this->agent->referrer());
-        } else {
-            $this->session->set_flashdata('error', trans("msg_error"));
-            $this->session->set_flashdata('submit', "options");
-            redirect($this->agent->referrer());
+        $result = '';
+        $db_name = $this->input->get('db_name', true);
+        $table = $this->input->get('table', true);
+        $upload_id = $this->input->get('upload_id', true);
+
+        if($table) {
+            $load_item = $this->import_external_db->load_item($this->get_config($db_name));
+            $upload_item = $this->import_admin_model->upload_item($load_item);
+            var_dump($upload_item);
         }
+
+        echo json_encode($result);
     }
 }

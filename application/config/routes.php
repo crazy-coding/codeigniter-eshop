@@ -374,3 +374,5 @@ foreach ($languages as $language) {
 $route['(:any)'] = 'home_controller/any/$1';
 
 $route[$r_admin . '/imports'] = 'import_admin_controller/imports';
+$route[$r_admin . '/imports/load_more_data'] = 'import_admin_controller/load_more_data';
+$route[$r_admin . '/imports/upload_object'] = 'import_admin_controller/upload_object';

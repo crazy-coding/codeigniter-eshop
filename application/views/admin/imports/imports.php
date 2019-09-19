@@ -273,6 +273,22 @@
             <div class="box-header with-border">
                 <h3 class="box-title">Progress</h3>
             </div>
+            <div class="box-body">
+                <div class="progress">
+                    <div class="progress-bar progress-bar-striped active" role="progressbar" aria-valuenow="45" aria-valuemin="0" aria-valuemax="100" style="width: 0%">
+                        <span class="">0% Complete</span>
+                    </div>
+                </div>
+                <ul class="scroll-list list-unstyled" id="scroll_list">
+                
+                </ul>
+                <div class="ajax-load text-center" style="display:none">
+                    <p><img src="http://demo.itsolutionstuff.com/plugin/loader.gif">Loading More post</p>
+                </div>
+            </div>
+            <div class="box-footer">
+                <button class="btn btn-primary pull-right" id="start_btn" onclick="start=1;loadMoreData(glo_upload_id);this.disabled=true;clearList()">Start Upload</button>
+            </div>
         </div>
     </div>
 </div>
@@ -301,4 +317,105 @@
 
 <script>
     $('.selectpicker').selectpicker();
+
+    var number = 11;
+    var start = 0;
+    var glo_upload_id = 0;
+    // $(window).scroll(function() {
+    //     if($(window).scrollTop() + $(window).height() >= $(document).height()) {
+    //         var last_id = $("#scroll_list li:last").attr("id");
+    //         loadMoreData(last_id);
+    //     }
+    // });
+    function clearList() {
+        number -= 10;
+        $("#scroll_list li").remove();
+    }
+
+    function loadMoreData(last_id){
+        $.ajax({
+            url: '<?php echo base_url("admin/imports/load_more_data"); ?>',
+            data: {
+                db_name: '<?php echo $imports['current']['db_name']; ?>',
+                table: '<?php echo $imports['current']['table']; ?>',
+                last_id: last_id,
+            },
+            datatype: 'json',
+            type: "get",
+            beforeSend: function()
+            {
+                $('.ajax-load').show();
+            }
+        })
+        .done(function(data)
+        {
+            data = JSON.parse(data);
+            if(data.length == 0) {
+                alert('complete'); 
+                return;
+            }
+            $('.ajax-load').hide();
+            var name = '<?php echo $imports['current']['products-title']; ?>';
+            var html = '';
+            if (name) {
+                for (var key in data)
+                {
+                    html += '<li id="' + data[key].id + '">' + number + ".  " + data[key][name] + '</li>';
+                    number++;
+                }
+            }
+            $("#scroll_list").append(html);
+            if(start) {
+                start_upload(data[0].id);
+            }
+            if($('#scroll_list li').length > 30) {
+                $("#scroll_list li").slice(0,10).remove();
+            }
+        })
+        .fail(function(jqXHR, ajaxOptions, thrownError)
+        {
+            alert('server not responding...');
+        });
+    }
+    function start_upload(upload_id){
+        $.ajax({
+            url: '<?php echo base_url("admin/imports/upload_object"); ?>',
+            data: {
+                db_name: '<?php echo $imports['current']['db_name']; ?>',
+                table: '<?php echo $imports['current']['table']; ?>',
+                upload_id: upload_id,
+            },
+            datatype: 'json',
+            type: "get",
+            beforeSend: function()
+            {
+                $('#'+upload_id).addClass('progressing');
+            }
+        })
+        .done(function(data)
+        {
+            data = JSON.parse(data);
+            if(data.length > 0) {
+                if(data.progress)
+                    $(".progress-bar").css("width", data.progress)
+
+                if(data.success)
+                    $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-success pull-right">uploaded</span>');
+                    glo_upload_id = upload_id;
+                    var next_id = $('#'+upload_id).next().eq(0).attr('id');
+                    if(next_id) return;
+                        start_upload(next_id);
+                    else
+                        loadMoreData(upload_id);
+            } else {
+                $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-danger pull-right">failed</span>');
+                document.getElementById('start_btn').disabled = false;
+            }
+
+        })
+        .fail(function(jqXHR, ajaxOptions, thrownError)
+        {
+            alert('server not responding...');
+        });
+    }
 </script>
