@@ -130,10 +130,10 @@
 
                 <div class="form-group">
                     <label class="control-label">Category ID</label>
-                    <select name="products-cateogory_id" class="form-control">
+                    <select name="products-category_id" class="form-control">
                         <option value="">[ Null ]</option>
                         <?php foreach ($imports['categories'] as $category): ?>
-                            <option value="<?php echo html_escape($category->id) ?>" <?php echo ($imports['current']['products-cateogory_id'] == $category->id) ? "selected" : ""; ?>><?php echo html_escape($category->description); ?></option>
+                            <option value="<?php echo html_escape($category->id) ?>" <?php echo ($imports['current']['products-category_id'] == $category->id) ? "selected" : ""; ?>><?php echo html_escape($category->description); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -395,15 +395,16 @@
         .done(function(data)
         {
             data = JSON.parse(data);
-            if(data.length > 0) {
-                if(data.progress)
-                    $(".progress-bar").css("width", data.progress)
 
-                if(data.success)
+            if(data.success) {
+                if(data.progress)
+                    $(".progress-bar").css("width", data.progress);
+
+                if(data.success) 
                     $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-success pull-right">uploaded</span>');
                     glo_upload_id = upload_id;
                     var next_id = $('#'+upload_id).next().eq(0).attr('id');
-                    if(next_id) return;
+                    if(next_id) 
                         start_upload(next_id);
                     else
                         loadMoreData(upload_id);
@@ -415,6 +416,8 @@
         })
         .fail(function(jqXHR, ajaxOptions, thrownError)
         {
+            $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-danger pull-right">failed</span>');
+            document.getElementById('start_btn').disabled = false;
             alert('server not responding...');
         });
     }

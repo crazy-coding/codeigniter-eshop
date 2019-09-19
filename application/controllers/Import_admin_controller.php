@@ -86,17 +86,20 @@ class Import_admin_controller extends Admin_Core_Controller
      */
     public function upload_object()
     {
-        $result = '';
+        $result = false;
         $db_name = $this->input->get('db_name', true);
         $table = $this->input->get('table', true);
         $upload_id = $this->input->get('upload_id', true);
 
         if($table) {
             $load_item = $this->import_external_db->load_item($this->get_config($db_name));
-            $upload_item = $this->import_admin_model->upload_item($load_item);
-            var_dump($upload_item);
+            $upload_success = $this->import_admin_model->upload_item($load_item);
+            if($upload_success) 
+                $result['success'] = true;
+                $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
         }
 
         echo json_encode($result);
     }
+
 }

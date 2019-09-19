@@ -27,7 +27,7 @@ class Import_admin_model extends CI_Model
             'users-city'                => '',
             'users-ext_location'        => '',
             'products-title'            => '',
-            'products-cateogory_id'     => '',
+            'products-category_id'      => '',
             'products-description'      => '',
             'products-price'            => '',
             'products-city'             => '',
@@ -83,7 +83,7 @@ class Import_admin_model extends CI_Model
             'users-city'                => $this->input->post('users-city', true),
             'users-ext_location'        => $this->input->post('users-ext_location', true),
             'products-title'            => $this->input->post('products-title', true),
-            'products-cateogory_id'     => $this->input->post('products-cateogory_id', true),
+            'products-category_id'     => $this->input->post('products-cateogory_id', true),
             'products-description'      => $this->input->post('products-description', true),
             'products-price'            => $this->input->post('products-price', true),
             'products-city'             => $this->input->post('products-city', true),
@@ -120,11 +120,12 @@ class Import_admin_model extends CI_Model
     {
         $db_name = $this->input->get('db_name', true);
         $table = $this->input->get('table', true);
+        $upload_id = $this->input->get('upload_id', true);
         
         $current = $this->get_current($db_name, $table);
         $users = [];
         $products = [];
-        $images = [];
+        $images = "";
         $custom_fields = [];
 
         foreach ($current as $key => $cur) {
@@ -134,43 +135,58 @@ class Import_admin_model extends CI_Model
                     case 'users-username':
                     case 'users-email':
                     case 'users-phone_number':
-                    case 'users-city':
-                        $users[$keys[1]] = $load_item[0][$cur];
-                        break;
                     case 'users-avatar':
+                        $users[$keys[1]] = $load_item[0]->$cur;
+                        break;
+                    case 'users-city':
+                        $users['city_id'] = $this->get_city_id($load_item[0]->$cur);
+                        break;
                     case 'users-ext_url':
+                        break;
                     case 'users-ext_location':
+                        $users += $this->generate_position($load_item[0]->$cur);
+                        break;
+                    case 'products-category_id':
+                        $products['category_id'] = $cur;
                         break;
                     case 'products-title':
-                    case 'products-cateogory_id':
                     case 'products-description':
                     case 'products-price':
-                    case 'products-city':
                     case 'products-address':
                     case 'products-zip_code':
                     case 'products-external_link':
-                        $products[$keys[1]] = $load_item[0][$cur];
+                        $products[$keys[1]] = $load_item[0]->$cur;
                         break;
+                    case 'products-city':
+                        $products['city_id'] = $this->get_city_id($load_item[0]->$cur);
                     case 'products-ext_location':
-                    case 'products-ext_main_image':
+                        $products += $this->generate_position($load_item[0]->$cur);
                         break;
+                    case 'products-ext_main_image':
                     case 'products-ext_images':
+                        $images .= $load_item[0]->$cur.",";
+                        break;
                     case 'products-ext_addtional_description':
                     case 'products-ext_addtional_fields':
+                        foreach (explode(",", $cur) as $col) {
+                            $custom_fields[$keys[1]][] = $load_item[0]->$col;
+                        }
                         break;
                 }
             }
         }
         
-        $user_id = add_users($users);
+        $user_id = $this->add_users($users);
+        if (isset($users['avatar']))
+            $this->avatar_upload($users['avatar'], $user_id);
 
         $products['user_id'] = $user_id;
-        add_products($products);
-        add_images($images);
-        add_custom_fields($custom_fields);
-        
-        var_dump($current, $load_item);die;
+        $product_id = $this->add_products($products);
+        $this->add_images($images, $product_id);
 
+        // $this->add_custom_fields($custom_fields);
+
+        return true;
     }
 
 
@@ -179,13 +195,13 @@ class Import_admin_model extends CI_Model
     {
         $data = array(
             'title' => "",
-            'product_type' => "",
-            'listing_type' => "",
+            'product_type' => "physical",
+            'listing_type' => "sell_on_site",
             'category_id' => 0,
             'subcategory_id' => 0,
             'third_category_id' => 0,
             'price' => 0,
-            'currency' => "",
+            'currency' => "USD",
             'description' => "",
             'product_condition' => "",
             'country_id' => 0,
@@ -194,7 +210,7 @@ class Import_admin_model extends CI_Model
             'address' => "",
             'zip_code' => "",
             'user_id' => 0,
-            'status' => 0,
+            'status' => 1,
             'is_promoted' => 0,
             'promote_start_date' => date('Y-m-d H:i:s'),
             'promote_end_date' => date('Y-m-d H:i:s'),
@@ -202,7 +218,7 @@ class Import_admin_model extends CI_Model
             'promote_day' => 0,
             'visibility' => 1,
             'rating' => 0,
-            'hit' => 0,
+            'hit' => 2,
             'demo_url' => "",
             'external_link' => "",
             'files_included' => "",
@@ -219,6 +235,8 @@ class Import_admin_model extends CI_Model
         foreach ($custom as $column => $value) {
             $data[$column] = $value;
         }
+        $data["slug"] = str_slug($data["title"]);
+        $data["description"] = "<p>".$data["description"]."</p>";
 
         return $this->db->insert('products', $data);
     }
@@ -226,8 +244,22 @@ class Import_admin_model extends CI_Model
     // If exist user, load user_id. if not add user data.
     public function add_users($custom)
     {
+        $this->load->library('auth_model');
+        $is_user = $this->auth_model->get_user_by_username($custom['username'])->id;
+        if($is_user) return $is_user;
+
         $data = array(
-            'title' => "",
+            'username' => "",
+            'password' => "",
+            'email' => "",
+            'user_type' => "registered",
+            'role' => "vendor",
+            'slug' => "",
+            'banned' => 0,
+            'shop_name' => "",
+            'show_phone' => 1,
+            'is_active_shop_request' => 1,
+            'token' => generate_token(),
             'created_at' => date('Y-m-d H:i:s')
         );
 
@@ -235,22 +267,30 @@ class Import_admin_model extends CI_Model
             $data[$column] = $value;
         }
 
-        return $this->db->insert('users', $data);
+        $this->load->library('bcrypt');
+
+        $data['email'] = $data["username"]."@zappeur.com";
+        $data['shop_name'] = $data["username"];
+        $data['password'] = $this->bcrypt->hash_password($data['username']);
+        $data["slug"] = $this->auth_model->generate_uniqe_slug($data["username"]);
+
+        if ($this->db->insert('users', $data)) {
+            $last_id = $this->db->insert_id();
+            return $last_id;
+        } else {
+            return false;
+        }
     }
 
     // Upload images and change image names and add image data.
-    public function add_images($custom)
+    public function add_images($custom, $product_id)
     {
-        $data = array(
-            'title' => "",
-            'created_at' => date('Y-m-d H:i:s')
-        );
+        $images = array_unique(explode(",", $custom));
 
-        foreach ($custom as $column => $value) {
-            $data[$column] = $value;
+        foreach ($images as $k => $url) {
+            if($url) 
+                $this->products_upload($url, $product_id);
         }
-
-        return $this->db->insert('images', $data);
     }
 
     // If not exist custom field, make it. then add custom field data.
@@ -266,5 +306,110 @@ class Import_admin_model extends CI_Model
         }
 
         return $this->db->insert('custom_fields', $data);
+    }
+
+    // Update profile avatar.
+    public function avatar_upload($url, $user_id)
+    {
+        $this->load->model('upload_model');
+
+        $user_id = clean_number($user_id);
+        $temp_path = $this->upload_image_to_temp($url);
+        if (!empty($temp_path)) {
+            //delete old avatar
+            delete_file_from_server(user()->avatar);
+            $data["avatar"] = $this->upload_model->avatar_upload($temp_path);
+            $this->upload_model->delete_temp_image($temp_path);
+        }
+
+        $this->db->where('id', $user_id);
+        return $this->db->update('users', $data);
+    }
+
+    // Upload temp image by url.
+    public function upload_image_to_temp($url = null)
+    {
+        $new = './uploads/temp/img_temp_' . generate_unique_id();
+        set_time_limit(0); // unlimited max execution time
+        
+        $data = file_get_contents($url);
+        $result = file_put_contents($new, $data);
+
+        // $ch = curl_init();
+        // $fp = fopen($new, "w");
+        // $options = array(
+        //     CURLOPT_FILE    => $fp,
+        //     CURLOPT_TIMEOUT =>  28800,
+        //     CURLOPT_URL     => $url
+        // );
+        // curl_setopt_array($ch, $options);
+        // curl_exec($ch);
+        // curl_close($ch);
+        // $result = 1;
+        // fclose($fp);
+
+        if($result)
+            return $new;
+        else
+            return false;
+    }
+
+    // Upload product image
+    public function products_upload($url, $product_id)
+    {
+        $this->load->model('upload_model');
+
+        $temp_path = $this->upload_image_to_temp($url);
+        if (!empty($temp_path)) {
+            $data = array(
+                'product_id' => $product_id,
+                'image_default' => $this->upload_model->product_default_image_upload($temp_path, "images"),
+                'image_big' => $this->upload_model->product_big_image_upload($temp_path, "images"),
+                'image_small' => $this->upload_model->product_small_image_upload($temp_path, "images"),
+                'is_main' => 0,
+                'storage' => "local"
+            );
+            $this->upload_model->delete_temp_image($temp_path);
+
+            //move to s3
+            if ($this->storage_settings->storage == "aws_s3") {
+                $this->load->model("aws_model");
+                $data["storage"] = "aws_s3";
+                //move images
+                if (!empty($data["image_default"])) {
+                    $this->aws_model->put_product_object($data["image_default"], FCPATH . "uploads/images/" . $data["image_default"]);
+                    delete_file_from_server("uploads/images/" . $data["image_default"]);
+                }
+                if (!empty($data["image_big"])) {
+                    $this->aws_model->put_product_object($data["image_big"], FCPATH . "uploads/images/" . $data["image_big"]);
+                    delete_file_from_server("uploads/images/" . $data["image_big"]);
+                }
+                if (!empty($data["image_small"])) {
+                    $this->aws_model->put_product_object($data["image_small"], FCPATH . "uploads/images/" . $data["image_small"]);
+                    delete_file_from_server("uploads/images/" . $data["image_small"]);
+                }
+            }
+            $this->db->insert('images', $data);
+            return  $this->db->insert_id();
+        }
+    }
+
+    // Generate Country, City, States, Location, Zipcode
+    public function generate_position($location)
+    {
+        return [
+            'country_id'    => 75
+        ];
+    }
+
+    // Get city id by name
+    public function get_city_id($val)
+    {
+        $this->load->model('location_model');
+        $cities = $this->location_model->search_cities($val);
+        if(count($cities) > 0)
+            return $cities[0]->id;
+        else
+            return null;
     }
 }

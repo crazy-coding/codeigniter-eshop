@@ -14,6 +14,7 @@ class Upload_model extends CI_Model
                 return null;
             }
         }
+        
         $config['upload_path'] = './uploads/temp/';
         $config['allowed_types'] = 'gif|jpg|jpeg|png';
         $config['file_name'] = 'img_temp_' . generate_unique_id();

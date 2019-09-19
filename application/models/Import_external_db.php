@@ -44,4 +44,17 @@ class Import_external_db extends CI_Model
         $query = $external_db->query("SELECT * FROM $table WHERE id = $upload_id");
         return $query->result();
     }
+
+    // Calculate progress
+    public function calculate_progress($config)
+    {
+        $table = $this->input->get('table', true);
+        $upload_id = $this->input->get('upload_id', true);
+
+        $external_db = $this->load->database($config, TRUE);
+        $current = $external_db->query("SELECT count(*) count FROM $table WHERE id <= $upload_id")->row()->count;
+        $total = $external_db->query("SELECT count(*) count FROM $table")->row()->count;
+        
+        return (round($current/$total*10000)/100)."%";
+    }
 }
