@@ -360,11 +360,11 @@
         .done(function(data)
         {
             data = JSON.parse(data);
+            $('.ajax-load').hide();
             if(data.length == 0) {
                 alert('complete'); 
                 return;
             }
-            $('.ajax-load').hide();
             var name = '<?php echo $imports['current']['products-title']; ?>';
             var html = '';
             if (name) {
