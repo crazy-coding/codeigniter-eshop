@@ -313,6 +313,16 @@
         border: 1px solid #ced4da;
         border-radius: 0;
     }
+    .scroll-list li {
+        padding: 0 5px;
+    }
+    .scroll-list li.progressing {
+        background: url('<?php echo base_url(); ?>/assets/img/loading.gif') right no-repeat;
+        background-size: contain;
+    }
+    .scroll-list li:hover {
+        background-color: #dedede;
+    }
 </style>
 
 <script>

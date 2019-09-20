@@ -91,12 +91,24 @@ class Import_admin_controller extends Admin_Core_Controller
         $table = $this->input->get('table', true);
         $upload_id = $this->input->get('upload_id', true);
 
-        if($table) {
-            $load_item = $this->import_external_db->load_item($this->get_config($db_name));
-            $upload_success = $this->import_admin_model->upload_item($load_item);
-            if($upload_success) 
-                $result['success'] = true;
-                $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
+        $imports = [
+            'db_name'   => $db_name,
+            'table'   => $table,
+            'upload_id'   => $upload_id,
+        ];
+
+        if($this->session->flashdata('imports')['upload_id'] > $imports['upload_id']) {
+            $result['success'] = true;
+            $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
+        } else {
+            if($table) {
+                $load_item = $this->import_external_db->load_item($this->get_config($db_name));
+                $upload_success = $this->import_admin_model->upload_item($load_item);
+                if($upload_success) 
+                    $result['success'] = true;
+                    $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
+                    $this->session->set_flashdata('imports', $imports);
+            }
         }
 
         echo json_encode($result);

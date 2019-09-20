@@ -60,12 +60,6 @@ class Import_admin_model extends CI_Model
             'created_at' => date('Y-m-d H:i:s')
         );
 
-        $this->db->where('db_name', $data['db_name']);
-        $this->db->where('table_from', $data['table_from']);
-        $this->db->where('table_to', $data['table_to']);
-        $this->db->where('column_to', $data['column_to']);
-        $this->db->delete('imports');
-
         return $this->db->insert('imports', $data);
     }
 
@@ -83,7 +77,7 @@ class Import_admin_model extends CI_Model
             'users-city'                => $this->input->post('users-city', true),
             'users-ext_location'        => $this->input->post('users-ext_location', true),
             'products-title'            => $this->input->post('products-title', true),
-            'products-category_id'     => $this->input->post('products-cateogory_id', true),
+            'products-category_id'      => $this->input->post('products-category_id', true),
             'products-description'      => $this->input->post('products-description', true),
             'products-price'            => $this->input->post('products-price', true),
             'products-city'             => $this->input->post('products-city', true),
@@ -96,6 +90,10 @@ class Import_admin_model extends CI_Model
             'products-ext_addtional_description'   => implode(",", $this->input->post('products-ext_addtional_description', true)),
             'products-ext_addtional_fields'        => implode(",", $this->input->post('products-ext_addtional_fields', true)),
         );
+        
+        $this->db->where('db_name', $data['db_name']);
+        $this->db->where('table_from', $data['table']);
+        $this->db->delete('imports');
 
         foreach ($data as $key => $row) {
             if (count(explode("-", $key)) == 2) {
@@ -228,7 +226,7 @@ class Import_admin_model extends CI_Model
             'shipping_cost' => 0,
             'is_sold' => 0,
             'is_deleted' => 0,
-            'is_draft' => 1,
+            'is_draft' => 0,
             'created_at' => date('Y-m-d H:i:s')
         );
 
@@ -237,16 +235,21 @@ class Import_admin_model extends CI_Model
         }
         $data["slug"] = str_slug($data["title"]);
         $data["description"] = "<p>".$data["description"]."</p>";
-
-        return $this->db->insert('products', $data);
+        
+        if ($this->db->insert('products', $data)) {
+            $last_id = $this->db->insert_id();
+            return $last_id;
+        } else {
+            return false;
+        }
     }
 
     // If exist user, load user_id. if not add user data.
     public function add_users($custom)
     {
         $this->load->library('auth_model');
-        $is_user = $this->auth_model->get_user_by_username($custom['username'])->id;
-        if($is_user) return $is_user;
+        $is_user = $this->auth_model->get_user_by_username($custom['username']);
+        if($is_user) return $is_user->id;
 
         $data = array(
             'username' => "",
