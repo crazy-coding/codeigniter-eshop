@@ -16,6 +16,7 @@ class Import_admin_model extends CI_Model
     //get current data
     public function get_current($db_name, $table_from)
     {
+        // $this->custom_query();
         $return = array(
             'db_name'                   => $db_name,
             'table'                     => $table_from,
@@ -39,6 +40,7 @@ class Import_admin_model extends CI_Model
             'products-ext_images'       => '',
             'products-ext_addtional_description'   => '',
             'products-ext_addtional_fields'        => '',
+            'imports-last_uploaded_id'  => '',
         );
 
         foreach ($this->get_imports($db_name, $table_from) as $row) 
@@ -89,6 +91,7 @@ class Import_admin_model extends CI_Model
             'products-ext_images'       => $this->input->post('products-ext_images', true),
             'products-ext_addtional_description'   => implode(",", $this->input->post('products-ext_addtional_description', true)),
             'products-ext_addtional_fields'        => implode(",", $this->input->post('products-ext_addtional_fields', true)),
+            'imports-last_uploaded_id'          => $this->input->post('imports-last_uploaded_id', true),
         );
         
         $this->db->where('db_name', $data['db_name']);
@@ -109,6 +112,15 @@ class Import_admin_model extends CI_Model
                         'created_at'    => date('Y-m-d H:i:s')
                     ));
                 }
+            } else if ($key == 'imports-last_uploaded_id') {
+                $this->add_imports(array(
+                    'db_name'       => $data['db_name'],
+                    'table_from'    => $data['table'],
+                    'column_from'   => $row,
+                    'table_to'      => 'imports',
+                    'column_to'     => 'last_uploaded_id',
+                    'created_at'    => date('Y-m-d H:i:s')
+                ));
             }
         }
         return true;
@@ -149,11 +161,13 @@ class Import_admin_model extends CI_Model
                         break;
                     case 'products-title':
                     case 'products-description':
-                    case 'products-price':
                     case 'products-address':
                     case 'products-zip_code':
                     case 'products-external_link':
                         $products[$keys[1]] = $load_item[0]->$cur;
+                        break;
+                    case 'products-price':
+                        $products[$keys[1]] = $load_item[0]->$cur*100;
                         break;
                     case 'products-city':
                         $products['city_id'] = $this->get_city_id($load_item[0]->$cur);
@@ -169,6 +183,8 @@ class Import_admin_model extends CI_Model
                         foreach (explode(",", $cur) as $col) {
                             $custom_fields[$keys[1]][] = $load_item[0]->$col;
                         }
+                        break;
+                    case 'imports-last_uploaded_id':
                         break;
                 }
             }
@@ -414,5 +430,41 @@ class Import_admin_model extends CI_Model
             return $cities[0]->id;
         else
             return null;
+    }
+
+    // Get or update last_uploaded_id
+    public function last_uploaded_id($db_name, $table_from, $upload_id = null)
+    {
+        $this->db->where('db_name', $db_name);
+        $this->db->where('table_from', $table_from);
+        $this->db->where('table_to', 'imports');
+        $this->db->where('column_to', 'last_uploaded_id');
+        $this->db->select('column_from');
+        $row = $this->db->get('imports')->row();
+
+        if ($row) {
+            if ($upload_id) {
+                $data['column_from'] = $upload_id;
+                $this->db->where('id', $row->id);
+                $this->db->update('imports', $data);
+            } else {
+                return $row->column_from;
+            }
+        } else {
+            return 0;
+        }
+    }
+
+
+    // Custom query for fixing database
+    public function custom_query()
+    {
+        $query = $this->db->get("products");
+        foreach($query->result() as $row) {
+            $data = ["price" => $row->price*100];
+            $this->db->where('id', $row->id);
+            $this->db->update('products', $data);
+        }
+        die;
     }
 }

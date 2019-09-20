@@ -258,6 +258,18 @@
                     </select>
                 </div>
 
+                <hr class="mt-5 mb-5">
+
+                <div class="box-header with-border">
+                    <h3 class="box-title">Last Uploaded ID</h3>
+                </div>
+
+                <div class="form-group">
+                    <label class="control-label">Last Uploaded ID</label>
+                    <input type="text" class="form-control" name="imports-last_uploaded_id"
+                        placeholder="Last Uploaded ID" value="<?php echo html_escape($imports['current']['imports-last_uploaded_id']); ?>" />
+                </div>
+
             </div>
             <!-- /.box-body -->
             <div class="box-footer">
@@ -362,6 +374,8 @@
             data = JSON.parse(data);
             $('.ajax-load').hide();
             if(data.length == 0) {
+                $(".progress-bar").css("width", "100%");
+                $(".progress-bar").children('span').text("100% Complete");
                 alert('complete'); 
                 return;
             }
@@ -408,7 +422,8 @@
 
             if(data.success) {
                 if(data.progress)
-                    $(".progress-bar").css("width", data.progress);
+                    $(".progress-bar").css("width", data.progress.percent);
+                    $(".progress-bar").children('span').text(data.progress.percent + " Complete" + data.progress.current + " / " + data.progress.total);
 
                 if(data.success) 
                     $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-success pull-right">uploaded</span>');

@@ -26,8 +26,11 @@ class Import_external_db extends CI_Model
     //load more data
     public function load_more_data($config)
     {
+        $this->load->model('import_admin_model');
+
+        $db_name = $this->input->get('db_name', true);
         $table = $this->input->get('table', true);
-        $last_id = $this->input->get('last_id', true);
+        $last_id = $this->input->get('last_id', true) ?: $this->import_admin_model->last_uploaded_id($db_name, $table);
 
         $external_db = $this->load->database($config, TRUE);
         $query = $external_db->query("SELECT * FROM $table WHERE id > $last_id ORDER BY id ASC LIMIT 10;");
@@ -55,6 +58,10 @@ class Import_external_db extends CI_Model
         $current = $external_db->query("SELECT count(*) count FROM $table WHERE id <= $upload_id")->row()->count;
         $total = $external_db->query("SELECT count(*) count FROM $table")->row()->count;
         
-        return (round($current/$total*10000)/100)."%";
+        return [
+            "percent"   => (round($current/$total*10000)/100)."%",
+            "current"   => $current,
+            "total"     => $total
+        ];
     }
 }
