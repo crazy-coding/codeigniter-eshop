@@ -28,6 +28,7 @@ class Import_admin_controller extends Admin_Core_Controller
         $imports['current'] = $this->import_admin_model->get_current($db_name, $table);
         // print_r($imports);
         $data['imports'] = $imports;
+        $data['remain_columns'] = $this->import_admin_model->remain_columns($db_name, $table, $imports['columns']);
 
         $this->load->view('admin/includes/_header', $data);
         $this->load->view('admin/imports/imports', $data);
@@ -91,13 +92,7 @@ class Import_admin_controller extends Admin_Core_Controller
         $table = $this->input->get('table', true);
         $upload_id = $this->input->get('upload_id', true);
 
-        $imports = [
-            'db_name'   => $db_name,
-            'table'   => $table,
-            'upload_id'   => $upload_id,
-        ];
-
-        if($this->session->flashdata('imports')['upload_id'] > $imports['upload_id']) {
+        if($this->import_admin_model->last_uploaded_id($db_name, $table) > $upload_id) {
             $result['success'] = true;
             $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
         } else {
@@ -107,7 +102,7 @@ class Import_admin_controller extends Admin_Core_Controller
                 if($upload_success) 
                     $result['success'] = true;
                     $result['progress'] = $this->import_external_db->calculate_progress($this->get_config($db_name));
-                    $this->session->set_flashdata('imports', $imports);
+                    $this->import_admin_model->last_uploaded_id($db_name, $table, $upload_id);
             }
         }
 

@@ -126,6 +126,27 @@ class Import_admin_model extends CI_Model
         return true;
     }
 
+    // Currently not matched columns.
+    public function remain_columns($db_name, $table, $coulumns)
+    {
+        $this->db->where('db_name', $db_name);
+        $this->db->where('table_from', $table);
+        $this->db->select('column_from');
+        $matched = $this->db->get('imports')->result();
+
+        foreach($matched as $matched_item) {
+            foreach (explode(",", $matched_item->column_from) as $cf) {
+                $mached_columns[] = $cf;
+            }
+        }
+        foreach($coulumns as $item) {
+            $ori_columns[] = $item->Field;
+        }
+        
+        return array_diff($ori_columns, $mached_columns);
+    }
+
+    // Upload one item.
     public function upload_item($load_item)
     {
         $db_name = $this->input->get('db_name', true);
@@ -136,6 +157,7 @@ class Import_admin_model extends CI_Model
         $users = [];
         $products = [];
         $images = "";
+        $custom_descriptions = [];
         $custom_fields = [];
 
         foreach ($current as $key => $cur) {
@@ -146,15 +168,15 @@ class Import_admin_model extends CI_Model
                     case 'users-email':
                     case 'users-phone_number':
                     case 'users-avatar':
-                        $users[$keys[1]] = $load_item[0]->$cur;
+                        $users[$keys[1]] = $load_item->$cur;
                         break;
                     case 'users-city':
-                        $users['city_id'] = $this->get_city_id($load_item[0]->$cur);
+                        $users['city_id'] = $this->get_city_id($load_item->$cur);
                         break;
                     case 'users-ext_url':
                         break;
                     case 'users-ext_location':
-                        $users += $this->generate_position($load_item[0]->$cur);
+                        $users += $this->generate_position($load_item->$cur);
                         break;
                     case 'products-category_id':
                         $products['category_id'] = $cur;
@@ -164,24 +186,28 @@ class Import_admin_model extends CI_Model
                     case 'products-address':
                     case 'products-zip_code':
                     case 'products-external_link':
-                        $products[$keys[1]] = $load_item[0]->$cur;
+                        $products[$keys[1]] = $load_item->$cur;
                         break;
                     case 'products-price':
-                        $products[$keys[1]] = $load_item[0]->$cur*100;
+                        $products[$keys[1]] = $load_item->$cur*100;
                         break;
                     case 'products-city':
-                        $products['city_id'] = $this->get_city_id($load_item[0]->$cur);
+                        $products['city_id'] = $this->get_city_id($load_item->$cur);
                     case 'products-ext_location':
-                        $products += $this->generate_position($load_item[0]->$cur);
+                        $products += $this->generate_position($load_item->$cur);
                         break;
                     case 'products-ext_main_image':
                     case 'products-ext_images':
-                        $images .= $load_item[0]->$cur.",";
+                        $images .= ",".$load_item->$cur;
                         break;
                     case 'products-ext_addtional_description':
+                        foreach (explode(",", $cur) as $col) {
+                            $custom_descriptions[$col] = $load_item->$col;
+                        }
+                        break;
                     case 'products-ext_addtional_fields':
                         foreach (explode(",", $cur) as $col) {
-                            $custom_fields[$keys[1]][] = $load_item[0]->$col;
+                            $custom_fields[$col] = $load_item->$col;
                         }
                         break;
                     case 'imports-last_uploaded_id':
@@ -192,11 +218,12 @@ class Import_admin_model extends CI_Model
         
         $user_id = $this->add_users($users);
         if (isset($users['avatar']))
-            $this->avatar_upload($users['avatar'], $user_id);
+            // $this->avatar_upload($users['avatar'], $user_id);
 
         $products['user_id'] = $user_id;
+        $products['description'] = $this->add_products_description($custom_descriptions, $products['description']);
         $product_id = $this->add_products($products);
-        $this->add_images($images, $product_id);
+        // $this->add_images($images, $product_id);
 
         // $this->add_custom_fields($custom_fields);
 
@@ -288,7 +315,7 @@ class Import_admin_model extends CI_Model
 
         $this->load->library('bcrypt');
 
-        $data['email'] = $data["username"]."@zappeur.com";
+        $data['email'] = $data['email'] ?: $data["username"]."@zappeur.com";
         $data['shop_name'] = $data["username"];
         $data['password'] = $this->bcrypt->hash_password($data['username']);
         $data["slug"] = $this->auth_model->generate_uniqe_slug($data["username"]);
@@ -304,17 +331,31 @@ class Import_admin_model extends CI_Model
     // Upload images and change image names and add image data.
     public function add_images($custom, $product_id)
     {
-        $images = array_unique(explode(",", $custom));
+        $images = array_unique(explode(",http", $custom));
 
         foreach ($images as $k => $url) {
             if($url) 
-                $this->products_upload($url, $product_id);
+                $this->products_upload("http".$url, $product_id);
         }
     }
 
-    // If not exist custom field, make it. then add custom field data.
-    public function add_custom_fields($custom)
+    // If exist addtional description fields, add that to description.
+    public function add_products_description($custom_descriptions, $description)
     {
+        foreach ($custom_descriptions as $key => $val) {
+            $description .= "<p><b>".ucfirst($key).":</b> $val</p>";
+        }
+
+        return $description;
+    }
+
+    // If not exist custom field, make it. then add custom field data.
+    public function add_custom_fields($custom_fields)
+    {
+        foreach ($custom_descriptions as $key => $val) {
+            $description .= "<p><b>$key:</b> $val</p>";
+        }
+
         $data = array(
             'title' => "",
             'created_at' => date('Y-m-d H:i:s')
@@ -339,10 +380,10 @@ class Import_admin_model extends CI_Model
             delete_file_from_server(user()->avatar);
             $data["avatar"] = $this->upload_model->avatar_upload($temp_path);
             $this->upload_model->delete_temp_image($temp_path);
-        }
 
-        $this->db->where('id', $user_id);
-        return $this->db->update('users', $data);
+            $this->db->where('id', $user_id);
+            $this->db->update('users', $data);
+        }
     }
 
     // Upload temp image by url.
@@ -351,8 +392,22 @@ class Import_admin_model extends CI_Model
         $new = './uploads/temp/img_temp_' . generate_unique_id();
         set_time_limit(0); // unlimited max execution time
         
+        set_error_handler(
+            function ($err_severity, $err_msg, $err_file, $err_line, array $err_context) {
+              if (error_reporting() === 0) return false;
+          
+              throw new ErrorException( $err_msg, 0, $err_severity, $err_file, $err_line );
+            },
+            E_WARNING
+        );
+        try {
         $data = file_get_contents($url);
         $result = file_put_contents($new, $data);
+        } catch (Exception $e) {
+        return false;
+        }
+        restore_error_handler();
+
 
         // $ch = curl_init();
         // $fp = fopen($new, "w");
@@ -447,6 +502,7 @@ class Import_admin_model extends CI_Model
                 $data['column_from'] = $upload_id;
                 $this->db->where('id', $row->id);
                 $this->db->update('imports', $data);
+                return $upload_id;
             } else {
                 return $row->column_from;
             }

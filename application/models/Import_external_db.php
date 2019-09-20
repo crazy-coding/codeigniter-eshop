@@ -45,7 +45,7 @@ class Import_external_db extends CI_Model
 
         $external_db = $this->load->database($config, TRUE);
         $query = $external_db->query("SELECT * FROM $table WHERE id = $upload_id");
-        return $query->result();
+        return $query->row();
     }
 
     // Calculate progress

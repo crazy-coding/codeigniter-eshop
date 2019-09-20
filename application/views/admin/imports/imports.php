@@ -270,6 +270,14 @@
                         placeholder="Last Uploaded ID" value="<?php echo html_escape($imports['current']['imports-last_uploaded_id']); ?>" />
                 </div>
 
+                <div class="">
+                    <ul >
+                        <?php foreach($remain_columns as $rc): ?>
+                            <li><?php echo $rc; ?></li>
+                        <?php endforeach ?>
+                    </ul>
+                </div>
+
             </div>
             <!-- /.box-body -->
             <div class="box-footer">
@@ -384,13 +392,13 @@
             if (name) {
                 for (var key in data)
                 {
-                    html += '<li id="' + data[key].id + '">' + number + ".  " + data[key][name] + '</li>';
+                    html += '<li id="' + (data[key].id ? data[key].id : data[key].Id) + '">' + number + ".  " + data[key][name] + '</li>';
                     number++;
                 }
             }
             $("#scroll_list").append(html);
             if(start) {
-                start_upload(data[0].id);
+                start_upload(data[0].id ? data[0].id : data[0].Id);
             }
             if($('#scroll_list li').length > 30) {
                 $("#scroll_list li").slice(0,10).remove();
