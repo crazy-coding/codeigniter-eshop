@@ -134,6 +134,7 @@ class Import_admin_model extends CI_Model
         $this->db->select('column_from');
         $matched = $this->db->get('imports')->result();
 
+        $mached_columns = [];
         foreach($matched as $matched_item) {
             foreach (explode(",", $matched_item->column_from) as $cf) {
                 $mached_columns[] = $cf;
@@ -344,7 +345,8 @@ class Import_admin_model extends CI_Model
     public function add_products_description($custom_descriptions, $description)
     {
         foreach ($custom_descriptions as $key => $val) {
-            $description .= "<p><b>".ucfirst($key).":</b> $val</p>";
+            if($val)
+                $description .= "<p><b>".ucfirst(str_replace(['_', '/', ','], [' ', ' ', ' '], $key)).":</b> $val</p>";
         }
 
         return $description;
@@ -354,14 +356,17 @@ class Import_admin_model extends CI_Model
     public function add_custom_fields($custom_fields, $category_id, $product_id)
     {
         foreach ($custom_fields as $key => $val) {
-            $field_id = $this->get_field_id($key, $category_id);
-            $data = array(
-                'field_id'      => $field_id,
-                'product_id'    => $product_id,
-                'product_filter_key' => strtolower($key),
-                'field_value'   => $val,
-            );
-            $this->db->insert('custom_fields_product', $data);
+            if($val) {
+                $key = str_replace(['house_', 'job_', 'description_'], ['', '', ''], $key);
+                $field_id = $this->get_field_id($key, $category_id);
+                $data = array(
+                    'field_id'      => $field_id,
+                    'product_id'    => $product_id,
+                    'product_filter_key' => strtolower($key),
+                    'field_value'   => $val,
+                );
+                $this->db->insert('custom_fields_product', $data);
+            }
         }
     }
 
@@ -478,11 +483,11 @@ class Import_admin_model extends CI_Model
     public function get_city_id($val)
     {
         $this->load->model('location_model');
-        $cities = $this->location_model->search_cities($val);
-        if(count($cities) > 0)
-            return $cities[0]->id;
-        else
-            return null;
+        foreach(explode(" ", $val) as $city) {
+            $cities = $this->location_model->search_cities($city);
+            if(count($cities) > 0) return $cities[0]->id;
+        }
+        return null;
     }
 
     // Get or update last_uploaded_id
@@ -492,13 +497,13 @@ class Import_admin_model extends CI_Model
         $this->db->where('table_from', $table_from);
         $this->db->where('table_to', 'imports');
         $this->db->where('column_to', 'last_uploaded_id');
-        $this->db->select('column_from');
+        $this->db->select('id, column_from');
         $row = $this->db->get('imports')->row();
 
         if ($row) {
             if ($upload_id) {
                 $data['column_from'] = $upload_id;
-                $this->db->where('id', $row->column_from);
+                $this->db->where('id', $row->id);
                 $this->db->update('imports', $data);
                 return $upload_id;
             } else {

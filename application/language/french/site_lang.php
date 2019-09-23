@@ -876,4 +876,5 @@ $lang["send_email_item_sold"] = "Send me an email when one of my item is sold";
 $lang["you_have_new_order"] = "You have a new order";
 $lang["update_slider_item"] = "Update Slider Item";
 $lang["msg_message_sent_error"] = "You cannot send message to yourself!";
+$lang["imports"] = "Imports Data";
 ?>
