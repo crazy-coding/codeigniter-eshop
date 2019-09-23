@@ -222,6 +222,7 @@ class Import_admin_model extends CI_Model
             $this->avatar_upload($users['avatar'], $user_id);
         
         $products['user_id'] = $user_id;
+        $products['description'] = isset($products['description']) ? $products['description'] : "";
         $products['description'] = $this->add_products_description($custom_descriptions, $products['description']);
         $product_id = $this->add_products($products);
         $this->add_images($images, $product_id);
@@ -333,11 +334,10 @@ class Import_admin_model extends CI_Model
     // Upload images and change image names and add image data.
     public function add_images($custom, $product_id)
     {
-        $images = array_unique(explode(",http", $custom));
-
+        $images = array_unique(explode(",", $custom));
         foreach ($images as $k => $url) {
             if($url) 
-                $this->products_upload("http".$url, $product_id);
+                $this->products_upload($url, $product_id);
         }
     }
 

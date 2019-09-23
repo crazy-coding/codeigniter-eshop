@@ -431,7 +431,7 @@
             if(data.success) {
                 if(data.progress)
                     $(".progress-bar").css("width", data.progress.percent);
-                    $(".progress-bar").children('span').text(data.progress.percent + " Complete" + data.progress.current + " / " + data.progress.total);
+                    $(".progress-bar").children('span').text(data.progress.percent + " Complete " + data.progress.current + " / " + data.progress.total);
 
                 if(data.success) 
                     $('#'+upload_id).removeClass('progressing').append('<span class="badge badge-success pull-right">uploaded</span>');
