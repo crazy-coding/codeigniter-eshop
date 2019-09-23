@@ -91,7 +91,7 @@ class Import_admin_model extends CI_Model
             'products-ext_images'       => $this->input->post('products-ext_images', true),
             'products-ext_addtional_description'   => implode(",", $this->input->post('products-ext_addtional_description', true)),
             'products-ext_addtional_fields'        => implode(",", $this->input->post('products-ext_addtional_fields', true)),
-            'imports-last_uploaded_id'          => $this->input->post('imports-last_uploaded_id', true),
+            'imports-last_uploaded_id'             => $this->input->post('imports-last_uploaded_id', true),
         );
         
         $this->db->where('db_name', $data['db_name']);
@@ -193,6 +193,7 @@ class Import_admin_model extends CI_Model
                         break;
                     case 'products-city':
                         $products['city_id'] = $this->get_city_id($load_item->$cur);
+                        break;
                     case 'products-ext_location':
                         $products += $this->generate_position($load_item->$cur);
                         break;
@@ -215,17 +216,16 @@ class Import_admin_model extends CI_Model
                 }
             }
         }
-        
         $user_id = $this->add_users($users);
         if (isset($users['avatar']))
-            // $this->avatar_upload($users['avatar'], $user_id);
-
+            $this->avatar_upload($users['avatar'], $user_id);
+        
         $products['user_id'] = $user_id;
         $products['description'] = $this->add_products_description($custom_descriptions, $products['description']);
         $product_id = $this->add_products($products);
-        // $this->add_images($images, $product_id);
+        $this->add_images($images, $product_id);
 
-        // $this->add_custom_fields($custom_fields);
+        $this->add_custom_fields($custom_fields, $products['category_id'], $product_id);
 
         return true;
     }
@@ -250,6 +250,7 @@ class Import_admin_model extends CI_Model
             'city_id' => 0,
             'address' => "",
             'zip_code' => "",
+            'location' => "",
             'user_id' => 0,
             'status' => 1,
             'is_promoted' => 0,
@@ -350,22 +351,18 @@ class Import_admin_model extends CI_Model
     }
 
     // If not exist custom field, make it. then add custom field data.
-    public function add_custom_fields($custom_fields)
+    public function add_custom_fields($custom_fields, $category_id, $product_id)
     {
-        foreach ($custom_descriptions as $key => $val) {
-            $description .= "<p><b>$key:</b> $val</p>";
+        foreach ($custom_fields as $key => $val) {
+            $field_id = $this->get_field_id($key, $category_id);
+            $data = array(
+                'field_id'      => $field_id,
+                'product_id'    => $product_id,
+                'product_filter_key' => strtolower($key),
+                'field_value'   => $val,
+            );
+            $this->db->insert('custom_fields_product', $data);
         }
-
-        $data = array(
-            'title' => "",
-            'created_at' => date('Y-m-d H:i:s')
-        );
-
-        foreach ($custom as $column => $value) {
-            $data[$column] = $value;
-        }
-
-        return $this->db->insert('custom_fields', $data);
     }
 
     // Update profile avatar.
@@ -390,7 +387,7 @@ class Import_admin_model extends CI_Model
     public function upload_image_to_temp($url = null)
     {
         $new = './uploads/temp/img_temp_' . generate_unique_id();
-        set_time_limit(0); // unlimited max execution time
+        set_time_limit(60); // 0: unlimited max execution time
         
         set_error_handler(
             function ($err_severity, $err_msg, $err_file, $err_line, array $err_context) {
@@ -401,10 +398,10 @@ class Import_admin_model extends CI_Model
             E_WARNING
         );
         try {
-        $data = file_get_contents($url);
-        $result = file_put_contents($new, $data);
+            $data = file_get_contents($url);
+            $result = file_put_contents($new, $data);
         } catch (Exception $e) {
-        return false;
+            return false;
         }
         restore_error_handler();
 
@@ -468,11 +465,12 @@ class Import_admin_model extends CI_Model
         }
     }
 
-    // Generate Country, City, States, Location, Zipcode
+    // Generate Country, City, States, Location, Zipcode ----todo----
     public function generate_position($location)
     {
         return [
-            'country_id'    => 75
+            'country_id'    => 75,
+            'location'      => $location
         ];
     }
 
@@ -500,14 +498,21 @@ class Import_admin_model extends CI_Model
         if ($row) {
             if ($upload_id) {
                 $data['column_from'] = $upload_id;
-                $this->db->where('id', $row->id);
+                $this->db->where('id', $row->column_from);
                 $this->db->update('imports', $data);
                 return $upload_id;
             } else {
                 return $row->column_from;
             }
         } else {
-            return 0;
+            $this->db->insert('imports', [
+                'db_name'       => $db_name,
+                'table_from'    => $table_from,
+                'table_to'      => 'imports',
+                'column_to'     => 'last_uploaded_id',
+                'column_from'   => $upload_id ?: 0,
+            ]);
+            return $upload_id ?: 0;
         }
     }
 
@@ -522,5 +527,41 @@ class Import_admin_model extends CI_Model
             $this->db->update('products', $data);
         }
         die;
+    }
+
+    // Custom field, if exist load, not save
+    public function get_field_id($field_name, $category_id)
+    {
+        $this->db->where('product_filter_key', strtolower($field_name));
+        $field = $this->db->get("custom_fields")->row();
+        if($field) {
+            $field_id = $field->id;
+        } else {
+            $this->db->insert("custom_fields", [
+                'field_type'    => 'text',
+                'row_width'     => 'half',
+                'is_required'   => 0,
+                'status'        => 1,
+                'field_order'   => 3,
+                'is_product_filter'     => 0,
+                'product_filter_key'    => strtolower($field_name),
+            ]);
+            $field_id = $this->db->insert_id();
+            $this->db->insert("custom_fields_category", [
+                'category_id'   => $category_id,
+                'field_id'      => $field_id,
+            ]);
+            $this->db->insert("custom_fields_lang", [
+                'field_id'      => $field_id,
+                'lang_id'       => 1,
+                'name'          => $field_name,
+            ]);
+            $this->db->insert("custom_fields_lang", [
+                'field_id'      => $field_id,
+                'lang_id'       => 2,
+                'name'          => $field_name."(fr)",
+            ]);
+        }
+        return $field_id;
     }
 }

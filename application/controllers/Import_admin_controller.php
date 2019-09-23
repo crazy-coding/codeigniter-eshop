@@ -28,7 +28,7 @@ class Import_admin_controller extends Admin_Core_Controller
         $imports['current'] = $this->import_admin_model->get_current($db_name, $table);
         // print_r($imports);
         $data['imports'] = $imports;
-        $data['remain_columns'] = $this->import_admin_model->remain_columns($db_name, $table, $imports['columns']);
+        if ($table) $data['remain_columns'] = $this->import_admin_model->remain_columns($db_name, $table, $imports['columns']);
 
         $this->load->view('admin/includes/_header', $data);
         $this->load->view('admin/imports/imports', $data);
