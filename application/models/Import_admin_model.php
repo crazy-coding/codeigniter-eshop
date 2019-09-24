@@ -190,7 +190,7 @@ class Import_admin_model extends CI_Model
                         $products[$keys[1]] = $load_item->$cur;
                         break;
                     case 'products-price':
-                        $products[$keys[1]] = $load_item->$cur*100;
+                        $products += $this->get_price($load_item->$cur);
                         break;
                     case 'products-city':
                         $products['city_id'] = $this->get_city_id($load_item->$cur);
@@ -532,6 +532,37 @@ class Import_admin_model extends CI_Model
             $this->db->update('products', $data);
         }
         die;
+    }
+
+    // Get price
+    public function get_price($price)
+    {
+        $this->load->model('currency_model');
+        $prices = str_replace([" ", ",", "."], ["", "", ""], $price);
+        $mark = substr($prices, -1);
+        $price_number = 0;
+        $price_currency = "USD";
+        if($mark) {
+            switch ($mark) {
+                case "$":
+                    $price_currency = "USD";
+                    $price_number = (float) substr($prices, 0, -1);
+                    break;
+                case "€":
+                    $price_currency = "EUR";
+                    $price_number = (float) substr($prices, 0, -1);
+                    break;
+                default:
+                    $price_currency = "USD";
+                    $price_number = (float) $prices;
+                    break;
+            }
+        }
+
+        return [
+            'price'     => $price_number*100,
+            'currency'  => $price_currency
+        ];
     }
 
     // Custom field, if exist load, not save
