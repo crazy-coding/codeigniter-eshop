@@ -337,6 +337,7 @@ class Import_admin_model extends CI_Model
         $images = array_unique(explode(",", $custom));
         foreach ($images as $k => $url) {
             if($url) 
+                // if(substr($url, 0, 2) == "//") $url = substr($url, 2);
                 $this->products_upload($url, $product_id);
         }
     }
@@ -392,18 +393,24 @@ class Import_admin_model extends CI_Model
     public function upload_image_to_temp($url = null)
     {
         $new = './uploads/temp/img_temp_' . generate_unique_id();
-        set_time_limit(60); // 0: unlimited max execution time
+        set_time_limit(30); // 0: unlimited max execution time
         
+        if(strpos($url, 'efficity.com') !== false) return false;
+
         set_error_handler(
             function ($err_severity, $err_msg, $err_file, $err_line, array $err_context) {
-              if (error_reporting() === 0) return false;
-          
-              throw new ErrorException( $err_msg, 0, $err_severity, $err_file, $err_line );
+                return false;
+                if (error_reporting() === 0) return false;
+                throw new ErrorException( $err_msg, 0, $err_severity, $err_file, $err_line );
             },
             E_WARNING
         );
         try {
             $data = file_get_contents($url);
+            if (!strpos($http_response_header[0], "304")) { 
+                var_dump($url);die;
+                return false;
+            } 
             $result = file_put_contents($new, $data);
         } catch (Exception $e) {
             return false;
@@ -538,7 +545,7 @@ class Import_admin_model extends CI_Model
     public function get_price($price)
     {
         $this->load->model('currency_model');
-        $prices = str_replace([" ", ",", "."], ["", "", ""], $price);
+        $prices = str_replace([" ", ",", "."], "", $price);
         $mark = substr($prices, -1);
         $price_number = 0;
         $price_currency = "USD";
